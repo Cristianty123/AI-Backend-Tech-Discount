@@ -13,3 +13,5 @@ sentence-transformers==5.1.0
 urllib3==2.5.0
 webdriver-manager==4.0.2
 django-cors-headers
+djangorestframework
+djangorestframework-simplejwt

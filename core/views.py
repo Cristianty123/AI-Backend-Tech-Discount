@@ -1,11 +1,13 @@
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from django.contrib.auth.decorators import login_required
 import json
 import os
 import uuid
 from datetime import datetime
 from core.chatbot.TechChatbot import TechChatbot
+from core.chat_management.chat_manager import ChatManager
 import logging
 
 logger = logging.getLogger(__name__)
@@ -32,15 +34,12 @@ def get_chatbot_for_session(session_id):
 def chatWithChatbotWithoutLogin(request):
     """
     Endpoint para chat con el chatbot sin requerir login
-    Recibe mensajes y devuelve respuestas del asistente AI
     """
     try:
-        # Parsear el JSON del request
         data = json.loads(request.body)
         user_message = data.get('message', '').strip()
         session_id = data.get('session_id')
 
-        # Validar que el mensaje no esté vacío
         if not user_message:
             return JsonResponse({
                 'success': False,
@@ -48,28 +47,30 @@ def chatWithChatbotWithoutLogin(request):
                 'session_id': session_id or 'none'
             }, status=400)
 
-        # Generar session_id si no se proporciona (para nuevos usuarios)
         if not session_id:
             session_id = str(uuid.uuid4())
             logger.info(f"🆕 Nueva sesión creada: {session_id}")
 
-        # Obtener instancia del chatbot para esta sesión
+        # Obtener o crear chat para sesión anónima
+        chat = ChatManager.get_or_create_chat(session_id)
+
+        # Guardar mensaje del usuario
+        ChatManager.save_message(chat, 'user', user_message)
+
         chatbot = get_chatbot_for_session(session_id)
+        logger.info(f"💬 Mensaje recibido - Session: {session_id}")
 
-        # Log del mensaje recibido
-        logger.info(f"💬 Mensaje recibido - Session: {session_id}, Length: {len(user_message)}")
-
-        # Procesar el mensaje con el chatbot
         response = chatbot.chat(user_message)
+        logger.info(f"🤖 Respuesta generada - Session: {session_id}")
 
-        # Log de la respuesta generada
-        logger.info(f"🤖 Respuesta generada - Session: {session_id}, Length: {len(response)}")
+        # Guardar respuesta del asistente
+        ChatManager.save_message(chat, 'ai', response)
 
-        # Devolver respuesta exitosa
         return JsonResponse({
             'success': True,
             'response': response,
             'session_id': session_id,
+            'chat_id': str(chat.id) if chat else None,
             'timestamp': datetime.now().isoformat()
         })
 
@@ -79,21 +80,129 @@ def chatWithChatbotWithoutLogin(request):
             'success': False,
             'error': 'Formato JSON inválido'
         }, status=400)
-
-    except ValueError as e:
-        logger.error(f"❌ Error de configuración: {e}")
-        return JsonResponse({
-            'success': False,
-            'error': 'Error de configuración del chatbot'
-        }, status=500)
-
     except Exception as e:
         logger.error(f"❌ Error en el chatbot: {str(e)}")
         return JsonResponse({
             'success': False,
-            'error': 'Error interno del servidor. Por favor, intenta nuevamente.'
+            'error': 'Error interno del servidor'
         }, status=500)
 
+
+@login_required
+@csrf_exempt
+@require_http_methods(["POST"])
+def chatWithChatbotLoggedIn(request):
+    """
+    Endpoint para chat con el chatbot para usuarios logueados
+    """
+    try:
+        data = json.loads(request.body)
+        user_message = data.get('message', '').strip()
+        chat_id = data.get('chat_id')  # Opcional: chat específico
+
+        if not user_message:
+            return JsonResponse({
+                'success': False,
+                'error': 'El mensaje no puede estar vacío'
+            }, status=400)
+
+        # Usar chat existente o crear uno nuevo
+        if chat_id:
+            try:
+                from core.models import Chat
+                chat = Chat.objects.get(id=chat_id, user=request.user)
+            except Chat.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Chat no encontrado'
+                }, status=404)
+        else:
+            chat = ChatManager.get_or_create_chat(None, request.user)
+
+        # Guardar mensaje del usuario
+        ChatManager.save_message(chat, 'user', user_message)
+
+        # Usar session_id basado en user_id para consistencia
+        session_id = f"user_{request.user.id}"
+        chatbot = get_chatbot_for_session(session_id)
+
+        response = chatbot.chat(user_message)
+
+        # Guardar respuesta del asistente
+        ChatManager.save_message(chat, 'ai', response)
+
+        return JsonResponse({
+            'success': True,
+            'response': response,
+            'chat_id': str(chat.id) if chat else None,
+            'timestamp': datetime.now().isoformat()
+        })
+
+    except Exception as e:
+        logger.error(f"❌ Error en chat logueado: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Error interno del servidor'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["GET"])
+def getUserChats(request):
+    """Obtener todos los chats del usuario"""
+    try:
+        chats = ChatManager.get_user_chats(request.user)
+
+        chat_list = []
+        for chat in chats:
+            last_message = chat.messages.last()
+            chat_list.append({
+                'id': str(chat.id),
+                'title': chat.title,
+                'created_at': chat.created_at.isoformat(),
+                'last_message': last_message.content if last_message else '',
+                'message_count': chat.messages.count()
+            })
+
+        return JsonResponse({
+            'success': True,
+            'chats': chat_list
+        })
+    except Exception as e:
+        logger.error(f"❌ Error al obtener chats: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Error al obtener chats'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["GET"])
+def getChatMessages(request, chat_id):
+    """Obtener mensajes de un chat específico"""
+    try:
+        messages = ChatManager.get_chat_messages(chat_id, request.user)
+
+        message_list = []
+        for message in messages:
+            message_list.append({
+                'id': str(message.id),
+                'sender': message.sender,
+                'content': message.content,
+                'timestamp': message.created_at.isoformat()
+            })
+
+        return JsonResponse({
+            'success': True,
+            'messages': message_list
+        })
+
+    except Exception as e:
+        logger.error(f"❌ Error al obtener mensajes: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Chat no encontrado'
+        }, status=404)
 
 @csrf_exempt
 @require_http_methods(["POST"])

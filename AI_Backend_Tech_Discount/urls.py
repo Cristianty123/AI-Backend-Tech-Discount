@@ -15,10 +15,16 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 from core import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('chat/nologin', views.chatWithChatbotWithoutLogin, name='chatWithChabotWithoutLogin'),
+
+    path('chat/', views.chatWithChatbotLoggedIn, name='chat-loggedin'),
+    path('chats/', views.getUserChats, name='user-chats'),
+    path('chats/<uuid:chat_id>/messages/', views.getChatMessages, name='chat-messages'),
+
+    path('api/auth/', include('user_auth.urls')),
 ]

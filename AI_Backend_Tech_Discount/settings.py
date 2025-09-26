@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'core',
+    'user_auth',
 ]
 
 MIDDLEWARE = [
@@ -139,3 +140,17 @@ load_dotenv()
 #Cargar mongo
 MONGODB_CONNECTION_STRING = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
 MONGODB_DB_NAME = os.getenv('MONGODB_DB_NAME', 'alkosto_db')
+
+# Configuración de JWT
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+}
+
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=24),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+}
