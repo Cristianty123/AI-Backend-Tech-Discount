@@ -1,7 +1,8 @@
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-from django.contrib.auth.decorators import login_required
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 import json
 import os
 import uuid
@@ -88,9 +89,8 @@ def chatWithChatbotWithoutLogin(request):
         }, status=500)
 
 
-@login_required
-@csrf_exempt
-@require_http_methods(["POST"])
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def chatWithChatbotLoggedIn(request):
     """
     Endpoint para chat con el chatbot para usuarios logueados
@@ -106,18 +106,18 @@ def chatWithChatbotLoggedIn(request):
                 'error': 'El mensaje no puede estar vacío'
             }, status=400)
 
-        # Usar chat existente o crear uno nuevo
         if chat_id:
-            try:
-                from core.models import Chat
-                chat = Chat.objects.get(id=chat_id, user=request.user)
-            except Chat.DoesNotExist:
+            # Verificar que el chat pertenece al usuario
+            user_chats = ChatManager.get_user_chats(request.user)
+            chat = user_chats.filter(id=chat_id).first()
+            if not chat:
                 return JsonResponse({
                     'success': False,
                     'error': 'Chat no encontrado'
                 }, status=404)
         else:
-            chat = ChatManager.get_or_create_chat(None, request.user)
+            # Crear nuevo chat usando ChatManager
+            chat = ChatManager.create_new_chat(user=request.user)
 
         # Guardar mensaje del usuario
         ChatManager.save_message(chat, 'user', user_message)
@@ -134,7 +134,7 @@ def chatWithChatbotLoggedIn(request):
         return JsonResponse({
             'success': True,
             'response': response,
-            'chat_id': str(chat.id) if chat else None,
+            'chat_id': str(chat.id),
             'timestamp': datetime.now().isoformat()
         })
 
@@ -145,9 +145,9 @@ def chatWithChatbotLoggedIn(request):
             'error': 'Error interno del servidor'
         }, status=500)
 
-
-@login_required
-@require_http_methods(["GET"])
+# ✅ CAMBIADO: @login_required por @api_view + @permission_classes
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def getUserChats(request):
     """Obtener todos los chats del usuario"""
     try:
@@ -176,8 +176,9 @@ def getUserChats(request):
         }, status=500)
 
 
-@login_required
-@require_http_methods(["GET"])
+# ✅ CAMBIADO: @login_required por @api_view + @permission_classes
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def getChatMessages(request, chat_id):
     """Obtener mensajes de un chat específico"""
     try:
@@ -203,6 +204,7 @@ def getChatMessages(request, chat_id):
             'success': False,
             'error': 'Chat no encontrado'
         }, status=404)
+
 
 @csrf_exempt
 @require_http_methods(["POST"])
@@ -297,4 +299,59 @@ def clearChatHistory(request):
         return JsonResponse({
             'success': False,
             'error': 'Error al limpiar el historial'
+        }, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_new_chat(request):
+    """Crear un nuevo chat vacío o reutilizar uno existente"""
+    try:
+        # ✅ Usar el nuevo método que reutiliza chats vacíos
+        chat, was_created = ChatManager.get_or_create_empty_chat(user=request.user)
+
+        if not chat:
+            return JsonResponse({
+                'success': False,
+                'error': 'No se pudo crear el chat'
+            }, status=500)
+
+        return JsonResponse({
+            'success': True,
+            'chat_id': str(chat.id),
+            'title': chat.title,
+            'was_created': was_created  # Para saber si fue creado o reutilizado
+        })
+
+    except Exception as e:
+        logger.error(f"❌ Error al crear chat: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Error al crear chat'
+        }, status=500)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_chat(request, chat_id):
+    """Eliminar un chat específico del usuario"""
+    try:
+        success = ChatManager.delete_chat(chat_id, request.user)
+
+        if success:
+            return JsonResponse({
+                'success': True,
+                'message': 'Chat eliminado exitosamente'
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Chat no encontrado o no tienes permisos'
+            }, status=404)
+
+    except Exception as e:
+        logger.error(f"❌ Error al eliminar chat: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Error al eliminar chat'
         }, status=500)

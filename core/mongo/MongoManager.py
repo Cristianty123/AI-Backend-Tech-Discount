@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class MongoManager:
-    def __init__(self, connection_string: str = None, db_name: str = "alkosto_db"):
+    def _init_(self, connection_string: str = None, db_name: str = "alkosto_db"):
         """
         Inicializa el manager de MongoDB
 
@@ -23,7 +23,10 @@ class MongoManager:
             connection_string: String de conexión a MongoDB
             db_name: Nombre de la base de datos
         """
-        self.connection_string = connection_string or "mongodb://localhost:27017/"
+
+        atlas_connection_string = "mongodb+srv://grupoTyrrel:mordemi123_@mongocluster-upb.ui6lmw6.mongodb.net/?retryWrites=true&w=majority&appName=mongocluster-upb"
+
+        self.connection_string = connection_string or atlas_connection_string  # Modifica esta línea
         self.db_name = db_name
         self.client = None
         self.db = None
