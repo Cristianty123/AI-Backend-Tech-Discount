@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+
     path('chat/nologin', views.chatWithChatbotWithoutLogin, name='chatWithChabotWithoutLogin'),
 
     path('chat/login', views.chatWithChatbotLoggedIn, name='chat-loggedin'),

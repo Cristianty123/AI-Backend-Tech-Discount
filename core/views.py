@@ -10,6 +10,8 @@ from datetime import datetime
 from core.chatbot.TechChatbot import TechChatbot
 from core.chat_management.chat_manager import ChatManager
 import logging
+from django.shortcuts import render
+from django.http import HttpResponse
 
 logger = logging.getLogger(__name__)
 
@@ -355,3 +357,9 @@ def delete_chat(request, chat_id):
             'success': False,
             'error': 'Error al eliminar chat'
         }, status=500)
+
+def celebration_view(request):
+    return render(request, 'yeyy/despliegue-celebracion.html')
+
+def health_check(request):
+    return HttpResponse("OK")
