@@ -8,11 +8,14 @@ class MongoDBConnectionTest(TestCase):
     """Pruebas de conexión y funcionalidad básica de MongoDB"""
 
     def setUp(self):
-        """Configuración inicial para las pruebas"""
+        """Configuración inicial para las pruebas - USA ATLAS POR DEFECTO"""
+        # NO pases connection_string para que use Atlas por defecto
         self.mongo_manager = MongoManager(
-            connection_string=settings.MONGODB_CONNECTION_STRING,
+            # Al no pasar connection_string, usará MONGODB_URI_ATLAS por defecto
             db_name=settings.MONGODB_DB_NAME
         )
+
+
 
     def tearDown(self):
         """Limpieza después de cada prueba"""

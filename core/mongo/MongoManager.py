@@ -4,7 +4,7 @@ from pymongo import MongoClient, UpdateOne
 from datetime import datetime, timedelta
 import logging
 from typing import List, Optional
-from bson import ObjectId
+import os
 
 # Importar los schemas Pydantic
 from .Schemas import ProductBase, ProductResponse, ProductUpdate
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class MongoManager:
-    def _init_(self, connection_string: str = None, db_name: str = "alkosto_db"):
+    def __init__(self, connection_string: str = None, db_name: str = "alkosto_db"):
         """
         Inicializa el manager de MongoDB
 
@@ -24,7 +24,7 @@ class MongoManager:
             db_name: Nombre de la base de datos
         """
 
-        atlas_connection_string = "mongodb+srv://grupoTyrrel:mordemi123_@mongocluster-upb.ui6lmw6.mongodb.net/?retryWrites=true&w=majority&appName=mongocluster-upb"
+        atlas_connection_string = os.getenv("MONGODB_URI_ATLAS")
 
         self.connection_string = connection_string or atlas_connection_string  # Modifica esta línea
         self.db_name = db_name
