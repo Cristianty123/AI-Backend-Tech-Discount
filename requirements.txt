@@ -16,3 +16,4 @@ django-cors-headers
 djangorestframework
 djangorestframework-simplejwt
 gunicorn
+whitenoise
