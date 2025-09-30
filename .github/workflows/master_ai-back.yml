@@ -68,4 +68,6 @@ jobs:
         with:
           app-name: 'AI-back'
           slot-name: 'Production'
+          package: .
+
           
