@@ -7,6 +7,7 @@ from sentence_transformers import SentenceTransformer
 from typing import List, Dict, Tuple, Optional
 import logging
 import re
+from datetime import datetime
 from core.mongo.MongoManager import MongoManager
 
 logger = logging.getLogger(__name__)
@@ -72,6 +73,71 @@ class EmbeddingManager:
 
         self._load_model()
         self._load_or_create_index()
+
+    def _save_index_to_mongodb(self):
+        """Guarda el índice FAISS en MongoDB"""
+        try:
+            if self.index is None:
+                logger.warning("⚠️ No hay índice para guardar")
+                return False
+
+            # Serializar índice FAISS
+            index_bytes = faiss.serialize_index(self.index)
+
+            # Guardar en MongoDB - index_bytes YA es bytes, no necesita conversión
+            mongo = MongoManager()
+            result = mongo.save_faiss_index({
+                'index_data': index_bytes,  # Esto ya es bytes de faiss.serialize_index
+                'dimension': self.index.d,
+                'total_products': self.index.ntotal,
+                'created_at': datetime.now()
+            })
+
+            if result:
+                logger.info("✅ Índice FAISS guardado en MongoDB")
+                return True
+            else:
+                logger.error("❌ No se pudo guardar el índice en MongoDB")
+                return False
+
+        except Exception as e:
+            logger.error(f"❌ Error guardando índice en MongoDB: {e}")
+            return False
+
+    def _load_index_from_mongodb(self):
+        """Carga el índice FAISS desde MongoDB"""
+        try:
+            mongo = MongoManager()
+            index_data = mongo.get_faiss_index()
+
+            if index_data and 'index_data' in index_data:
+                # index_data['index_data'] ya debería ser bytes listo para faiss.deserialize_index
+                self.index = faiss.deserialize_index(index_data['index_data'])
+
+                # Cargar metadata también
+                self.product_metadata = mongo.get_embeddings_metadata()
+
+                logger.info(f"✅ Índice FAISS cargado desde MongoDB: {self.index.ntotal} productos")
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"❌ Error cargando índice desde MongoDB: {e}")
+            return False
+
+    def _save_metadata_to_mongodb(self):
+        """Guarda la metadata en MongoDB"""
+        try:
+            mongo = MongoManager()
+            result = mongo.save_embeddings_metadata(self.product_metadata)
+            if result:
+                logger.info("✅ Metadata guardada en MongoDB")
+                return True
+            else:
+                logger.error("❌ No se pudo guardar metadata en MongoDB")
+                return False
+        except Exception as e:
+            logger.error(f"❌ Error guardando metadata en MongoDB: {e}")
+            return False
 
     def _load_model(self):
         """Carga el modelo de sentence transformers"""
@@ -187,13 +253,26 @@ class EmbeddingManager:
         try:
             logger.info("🔄 Iniciando creación de embeddings...")
 
-            # Obtener productos de MongoDB
-            mongo = MongoManager()
-            products = mongo.get_all_products()
+            # Obtener productos de MongoDB - CON MEJOR MANEJO DE ERRORES
+            try:
+                mongo = MongoManager()
+                products = mongo.get_all_products()
 
-            if not products:
-                logger.warning("⚠️ No hay productos en la base de datos")
-                return False
+                if not products:
+                    logger.warning("⚠️ No hay productos en la base de datos")
+                    return False
+
+            except Exception as mongo_error:
+                logger.error(f"❌ Error obteniendo productos de MongoDB: {mongo_error}")
+                logger.warning("🔄 Continuando con datos locales existentes...")
+
+                # Verificar si ya tenemos datos locales
+                if os.path.exists(self.metadata_file) and os.path.exists(self.index_file):
+                    logger.info("📂 Usando embeddings locales existentes")
+                    return True  # Considerar éxito porque tenemos datos locales
+                else:
+                    logger.error("❌ No hay datos locales disponibles")
+                    return False
 
             logger.info(f"📦 Procesando {len(products)} productos...")
 
@@ -247,7 +326,7 @@ class EmbeddingManager:
             # Los embeddings ya están normalizados
             self.index.add(embeddings)
 
-            # Guardar índice y metadata
+            # Guardar índice y metadata LOCALMENTE
             faiss.write_index(self.index, self.index_file)
 
             with open(self.metadata_file, 'w', encoding='utf-8') as f:
@@ -258,8 +337,16 @@ class EmbeddingManager:
 
             self.product_metadata = metadata
 
+            # GUARDAR EN MONGODB TAMBIÉN - CON MANEJO DE ERROR
+            try:
+                self._save_index_to_mongodb()
+                self._save_metadata_to_mongodb()
+            except Exception as save_error:
+                logger.warning(f"⚠️ No se pudo guardar en MongoDB: {save_error}")
+                logger.info("💾 Datos guardados localmente solamente")
+
             logger.info(f"✅ Embeddings creados correctamente: {embeddings.shape}")
-            logger.info(f"💾 Índice guardado en: {self.index_file}")
+            logger.info(f"💾 Índice guardado localmente")
 
             return True
 
@@ -270,25 +357,41 @@ class EmbeddingManager:
             return False
 
     def _load_or_create_index(self):
-        """Carga el índice existente o solicita crearlo"""
+        """Carga el índice desde MongoDB o archivos locales"""
         try:
+            # PRIMERO intentar cargar desde MongoDB
+            try:
+                if self._load_index_from_mongodb():
+                    logger.info(f"✅ Sistema cargado desde MongoDB: {self.index.ntotal} productos")
+                    return
+            except Exception as mongo_error:
+                logger.warning(f"⚠️ No se pudo cargar desde MongoDB: {mongo_error}")
+
+            # SEGUNDO: intentar cargar desde archivos locales
             if (os.path.exists(self.index_file) and
                     os.path.exists(self.metadata_file) and
                     os.path.getsize(self.index_file) > 0):
 
-                logger.info("📂 Cargando índice existente...")
+                logger.info("📂 Cargando índice local...")
                 self.index = faiss.read_index(self.index_file)
 
                 with open(self.metadata_file, 'r', encoding='utf-8') as f:
                     self.product_metadata = json.load(f)
 
-                logger.info(f"✅ Índice cargado: {self.index.ntotal} productos")
+                logger.info(f"✅ Índice local cargado: {self.index.ntotal} productos")
+
+                # Intentar guardar en MongoDB para el futuro (pero no fallar si no puede)
+                try:
+                    self._save_index_to_mongodb()
+                    self._save_metadata_to_mongodb()
+                except Exception:
+                    logger.warning("⚠️ No se pudo sincronizar con MongoDB")
+
             else:
-                logger.info("⚠️ No se encontró índice existente. Use create_embeddings_from_db() para crearlo")
+                logger.info("⚠️ No se encontró índice. Use create_embeddings_from_db() para crearlo")
 
         except Exception as e:
             logger.error(f"❌ Error cargando índice: {e}")
-            logger.info("⚠️ Creando nuevo índice...")
             self.index = None
             self.product_metadata = []
 

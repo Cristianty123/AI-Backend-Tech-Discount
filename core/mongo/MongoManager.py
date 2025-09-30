@@ -34,6 +34,67 @@ class MongoManager:
 
         self.connect()
 
+    def save_faiss_index(self, index_data):
+        """Guarda el índice FAISS en MongoDB"""
+        try:
+            # Asegurarnos de que existe la colección
+            if 'faiss_indices' not in self.db.list_collection_names():
+                self.db.create_collection('faiss_indices')
+
+            # CONVERTIR el array de NumPy a bytes
+            index_data_processed = index_data.copy()
+            if 'index_data' in index_data_processed and hasattr(index_data_processed['index_data'], 'tobytes'):
+                index_data_processed['index_data'] = index_data_processed['index_data'].tobytes()
+
+            return self.db.faiss_indices.replace_one(
+                {'_id': 'current'},
+                {**index_data_processed, 'updated_at': datetime.now()},
+                upsert=True
+            )
+        except Exception as e:
+            logger.error(f"❌ Error guardando índice FAISS: {e}")
+            return None
+
+    def get_faiss_index(self):
+        """Obtiene el índice FAISS desde MongoDB"""
+        try:
+            if 'faiss_indices' in self.db.list_collection_names():
+                index_data = self.db.faiss_indices.find_one({'_id': 'current'})
+                if index_data and 'index_data' in index_data:
+                    # CONVERTIR bytes de vuelta a array de NumPy
+                    import numpy as np
+                    index_data['index_data'] = np.frombuffer(index_data['index_data'], dtype=np.uint8)
+                return index_data
+            return None
+        except Exception as e:
+            logger.error(f"❌ Error obteniendo índice FAISS: {e}")
+            return None
+
+    def save_embeddings_metadata(self, metadata):
+        """Guarda la metadata de embeddings en MongoDB"""
+        try:
+            if 'embeddings_metadata' not in self.db.list_collection_names():
+                self.db.create_collection('embeddings_metadata')
+
+            return self.db.embeddings_metadata.replace_one(
+                {'_id': 'current'},
+                {'metadata': metadata, 'updated_at': datetime.now()},
+                upsert=True
+            )
+        except Exception as e:
+            logger.error(f"❌ Error guardando metadata: {e}")
+            return None
+
+    def get_embeddings_metadata(self):
+        """Obtiene la metadata de embeddings desde MongoDB"""
+        try:
+            if 'embeddings_metadata' in self.db.list_collection_names():
+                data = self.db.embeddings_metadata.find_one({'_id': 'current'})
+                return data.get('metadata', []) if data else []
+            return []
+        except Exception as e:
+            logger.error(f"❌ Error obteniendo metadata: {e}")
+            return []
     def connect(self):
         """Establece conexión con MongoDB"""
         try:
@@ -60,6 +121,7 @@ class MongoManager:
         except Exception as e:
             logger.error(f"❌ Error de conexión: {e}")
             raise
+
 
     def _create_indexes(self):
         """Crea índices para optimizar las consultas"""
