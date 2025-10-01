@@ -10,7 +10,7 @@
             padding: 0;
             font-family: 'Arial', sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            height: 100vh;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -22,32 +22,67 @@
         .container {
             max-width: 800px;
             padding: 20px;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         h1 {
-            font-size: 3rem;
-            margin-bottom: 30px;
+            font-size: 2.5rem;
+            margin-bottom: 20px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
 
         .subtitle {
-            font-size: 1.5rem;
-            margin-bottom: 40px;
+            font-size: 1.2rem;
+            margin-bottom: 30px;
             opacity: 0.9;
         }
 
         .video-container {
             max-width: 600px;
+            width: 90%;  /* ← Cambiado para móviles */
+            margin: 0 auto;  /* ← Centrado automático */
             border-radius: 15px;
             overflow: hidden;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            margin-left: 100px;
         }
 
         video {
             width: 100%;
             height: auto;
             display: block;
+        }
+
+        /* Media queries para móviles */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+                margin-bottom: 15px;
+            }
+
+            .subtitle {
+                font-size: 1rem;
+                margin-bottom: 25px;
+            }
+
+            .container {
+                padding: 15px;
+            }
+
+            .video-container {
+                width: 95%;  /* ← Más ancho en móviles */
+                max-width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            .subtitle {
+                font-size: 0.9rem;
+            }
         }
     </style>
 </head>

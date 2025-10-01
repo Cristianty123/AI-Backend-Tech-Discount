@@ -87,8 +87,15 @@ WSGI_APPLICATION = 'AI_Backend_Tech_Discount.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('PGDATABASE', 'postgres'),
+        'USER': os.environ.get('PGUSER', 'kggblgqott'),
+        'PASSWORD': os.environ.get('PGPASSWORD', 'Rokylindo123'),
+        'HOST': os.environ.get('PGHOST', 'ai-back-server.postgres.database.azure.com'),
+        'PORT': os.environ.get('PGPORT', '5432'),
+        'OPTIONS': {
+            'sslmode': 'require',  # Azure PostgreSQL requiere SSL
+        },
     }
 }
 

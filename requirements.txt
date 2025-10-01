@@ -17,3 +17,4 @@ djangorestframework
 djangorestframework-simplejwt
 gunicorn
 whitenoise
+psycopg2-binary
