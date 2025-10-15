@@ -20,7 +20,7 @@ jobs:
       - name: Set up Python version
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: '3.12'
           cache: 'pip'
 
       # 🔹 3. Cachear dependencias para acelerar builds
@@ -99,3 +99,4 @@ jobs:
           app-name: 'IA-Back'
           slot-name: 'Production'
           package: .
+
