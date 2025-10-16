@@ -6,6 +6,10 @@ on:
       - master
   workflow_dispatch:
 
+env:
+  AZURE_WEBAPP_NAME: IA-Back
+  AZURE_RESOURCE_GROUP: proyecto_2
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -91,19 +95,4 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_40882E3322CD49B4A8FBFCA7F92AF831 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_F6D90D0D459849E2AAAFB6A5DAB511C8 }}
 
-      # 🔹 11. Limpiar completamente el App Service (borra antenv y wwwroot)
-      - name: Full clean of App Service before deploy
-        run: |
-          echo "🧹 Cleaning /home directories on App Service..."
-          az webapp ssh --name IA-Back --resource-group <TU_RESOURCE_GROUP> --command "rm -rf /home/site/wwwroot/* /home/antenv /home/LogFiles/* /home/tmp/* || true"
-          echo "✅ Clean completed."
-
-      # 🔹 12. Desplegar el paquete limpio
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
-        id: deploy-to-webapp
-        with:
-          app-name: 'IA-Back'
-          slot-name: 'Production'
-          package: .
-          clean: true
+      # 🔹 11. Limpiar completament
