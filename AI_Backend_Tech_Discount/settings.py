@@ -93,6 +93,7 @@ WSGI_APPLICATION = 'AI_Backend_Tech_Discount.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
