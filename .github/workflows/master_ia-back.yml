@@ -23,7 +23,7 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
 
-      # 🔹 3. Cachear dependencias para acelerar builds
+      # 🔹 3. Cachear dependencias
       - name: Cache pip packages
         uses: actions/cache@v3
         with:
@@ -56,7 +56,7 @@ jobs:
       - name: List files for debugging
         run: ls -la
 
-      # 🔹 8. Subir el artefacto (sin incluir venv)
+      # 🔹 8. Subir artefacto sin el entorno virtual
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v4
         with:
@@ -74,7 +74,7 @@ jobs:
       contents: read
 
     steps:
-      # 🔹 9. Descargar el artefacto del job anterior
+      # 🔹 9. Descargar el artefacto
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
@@ -83,7 +83,7 @@ jobs:
       - name: List downloaded files
         run: ls -la
 
-      # 🔹 10. Iniciar sesión en Azure con los nuevos secretos
+      # 🔹 10. Iniciar sesión en Azure
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -91,14 +91,19 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_40882E3322CD49B4A8FBFCA7F92AF831 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_F6D90D0D459849E2AAAFB6A5DAB511C8 }}
 
-      # 🔹 11. Desplegar a tu nuevo App Service
-      - name: 'Deploy to Azure Web App'
+      # 🔹 11. Limpiar completamente el App Service (borra antenv y wwwroot)
+      - name: Full clean of App Service before deploy
+        run: |
+          echo "🧹 Cleaning /home directories on App Service..."
+          az webapp ssh --name IA-Back --resource-group <TU_RESOURCE_GROUP> --command "rm -rf /home/site/wwwroot/* /home/antenv /home/LogFiles/* /home/tmp/* || true"
+          echo "✅ Clean completed."
+
+      # 🔹 12. Desplegar el paquete limpio
+      - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
         with:
           app-name: 'IA-Back'
           slot-name: 'Production'
           package: .
-          deployment-method: zipdeploy
-
-
+          clean: true
