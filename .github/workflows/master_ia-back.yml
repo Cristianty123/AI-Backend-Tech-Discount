@@ -1,4 +1,4 @@
-name: Build and deploy Python app to Azure Web App - AI-back
+name: Build and deploy Python app to Azure Web App - IA-Back
 
 on:
   push:
@@ -88,3 +88,4 @@ jobs:
           app-name: 'AI-back'
           slot-name: 'Production'
           package: .
+
