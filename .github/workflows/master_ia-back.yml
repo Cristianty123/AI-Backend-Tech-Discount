@@ -99,4 +99,6 @@ jobs:
           app-name: 'IA-Back'
           slot-name: 'Production'
           package: .
+          deployment-method: zipdeploy
+
 
