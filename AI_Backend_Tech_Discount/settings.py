@@ -32,15 +32,7 @@ DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-ALLOWED_HOSTS = [
-    'ia-back-bketewhranetapck.centralus-01.azurewebsites.net',  # Tu nuevo dominio
-    'ai-back.azurewebsites.net',  # Tu dominio anterior
-    'localhost',
-    '127.0.0.1',
-    '.azurewebsites.net',
-    '169.254.129.3',  # Agregar la IP interna de Azure
-    '0.0.0.0'
-]
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 
